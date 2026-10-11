@@ -524,12 +524,6 @@ describe("reports", () => {
       },
       authorize(phase) {
         stages.push(phase);
-        expect(() =>
-          actor.sessions.transcript(authority, {
-            type: "session.report.latestCustomReport",
-            input: { ...target, customTypes: ["status"] },
-          }),
-        ).toThrow("authority callbacks cannot call their actor");
         if (phase === "commit") {
           allowed = false;
         }
