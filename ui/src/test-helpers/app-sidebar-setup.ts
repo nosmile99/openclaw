@@ -1,5 +1,8 @@
+import { gatewayOriginScope } from "@openclaw/gateway-client/browser";
 import { afterEach, beforeEach, onTestFinished, vi } from "vitest";
+import type { ApplicationGateway } from "../app/context.ts";
 import type { AppSidebarSessionNavigationElement } from "../components/app-sidebar-session-navigation.ts";
+import { storeSidebarSessionOwnerFilter } from "../components/app-sidebar-session-types.ts";
 import { disposeSidebarContextLifecycles } from "./app-sidebar-context-lifecycle.ts";
 import { settleLitElements } from "./lit-settle.ts";
 import { createStorageMock } from "./storage.ts";
@@ -113,4 +116,17 @@ export async function selectSidebarView(
   }
   button.click();
   await sidebar.updateComplete;
+}
+
+// General sidebar cases exercise all rows; default-owner regressions mount directly.
+export function seedSidebarEveryonePreference(gateway: ApplicationGateway): void {
+  const selfUserId = gateway.snapshot.selfUser?.id;
+  if (!selfUserId) {
+    return;
+  }
+  const gatewayUrl = gateway.connection.gatewayUrl;
+  const key = `openclaw.control.sidebarSessionOwnerFilter.v1:${gatewayOriginScope(gatewayUrl)}:${encodeURIComponent(selfUserId)}`;
+  if (localStorage.getItem(key) === null) {
+    storeSidebarSessionOwnerFilter(gatewayUrl, selfUserId, { ownerId: null, involvingMe: false });
+  }
 }

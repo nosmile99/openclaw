@@ -25,7 +25,6 @@ function createConnectionProps(overrides: Partial<ConnectionProps> = {}): Connec
       navCollapsed: false,
       navWidth: 258,
       sidebarEntries: [],
-      navigationScope: "mine",
       locale: "en",
     },
     secret: "tok",
