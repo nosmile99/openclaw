@@ -526,7 +526,7 @@ describe("Agents API retry prompt history", () => {
       } else if (retryScope === "revoked") {
         fixture.revoke(interruption);
       }
-      const historyReads = vi.spyOn(SessionManager, "openModelContextAsync");
+      const historyReadsBeforeRetry = readHistory.mock.calls.length;
       const retried = await fixture.run();
 
       if (retryScope === "cancelled" || retryScope === "revoked") {
@@ -543,7 +543,9 @@ describe("Agents API retry prompt history", () => {
 
       // Steering confirmation keeps the foreground admission, so a changed scope
       // rereads the same fenced prefix instead of reusing the first attempt's history.
-      expect(historyReads).toHaveBeenCalledTimes(retryScope === "same run" ? 0 : 1);
+      expect(readHistory.mock.calls.length - historyReadsBeforeRetry).toBe(
+        retryScope === "same run" ? 0 : 1,
+      );
       expect(retried.terminal).toEqual({ kind: "ok" });
       expect(retried.assistantTexts).toEqual(["The completed answer."]);
       // Steering correlation preserves the admitted input; changed scopes must read it afresh.
