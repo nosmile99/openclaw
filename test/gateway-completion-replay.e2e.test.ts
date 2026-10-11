@@ -247,7 +247,7 @@ async function startModel() {
       ).trim();
     const latestUser = input.toReversed().find((item) => item.role === "user" && userText(item));
     const text = latestUser ? userText(latestUser) : undefined;
-    const last = input.at(-1);
+    const last = input.findLast((item) => item.role !== "user" || userText(item));
     const id = String(++sequence);
     const final = (value: string) =>
       writeOpenAiResponsesText(response, {
@@ -255,7 +255,7 @@ async function startModel() {
         messageId: "msg_" + id,
         responseId: "resp_" + id,
       });
-    if (text === CHILD_TASK) {
+    if (text?.includes("[Subagent Task]") && text.split("\n\n").includes(CHILD_TASK)) {
       childStarted = true;
       await child.promise;
       final("CHILD_REPLAY_RESULT");
