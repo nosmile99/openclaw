@@ -4,7 +4,6 @@ import {
   executeSqliteQueryTakeFirstSync,
   getNodeSqliteKysely,
 } from "../infra/kysely-sync.js";
-import { deferSqlitePostCommitPublication } from "../infra/sqlite-post-commit.js";
 import { assertCanonicalSessionValidationSchema } from "./openclaw-agent-canonical-validation-schema.js";
 import { CANONICAL_READY_COLUMN_DEFINITION } from "./openclaw-agent-db-additive-columns.js";
 import {
@@ -15,18 +14,9 @@ import type { DB } from "./openclaw-agent-db.generated.js";
 import { ensureColumn, tableHasColumn } from "./openclaw-state-db-schema-helpers.js";
 
 type ReceiptDatabase = { db: DatabaseSync; agentId: string };
-const receiptSchemas = new WeakSet<DatabaseSync>();
-
 function hasReceiptColumn(db: DatabaseSync): boolean {
-  if (receiptSchemas.has(db)) {
-    return true;
-  }
   const { tableName, columnName } = CANONICAL_READY_COLUMN_DEFINITION;
-  const present = tableHasColumn(db, tableName, columnName);
-  if (present && !db.isTransaction) {
-    receiptSchemas.add(db);
-  }
-  return present;
+  return tableHasColumn(db, tableName, columnName);
 }
 
 function physicalReceipt(database: ReceiptDatabase): string | undefined {
@@ -74,8 +64,6 @@ export function recordOpenClawAgentCanonicalValidation(database: ReceiptDatabase
     const { tableName, columnName, dataType } = CANONICAL_READY_COLUMN_DEFINITION;
     ensureColumn(database.db, tableName, `${columnName} ${dataType}`);
   }
-  // A rolled-back first use must retry the DDL on its next admission.
-  deferSqlitePostCommitPublication(database.db, () => receiptSchemas.add(database.db));
   executeSqliteQuerySync(
     database.db,
     getNodeSqliteKysely<Pick<DB, "session_key_contract">>(database.db)
