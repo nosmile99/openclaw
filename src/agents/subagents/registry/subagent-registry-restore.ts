@@ -296,6 +296,10 @@ export function createSubagentRegistryRestorer(config: {
         ) {
           continue captured;
         }
+        // Terminal delivery has its own session checks; startup only reconciles unfinished runs.
+        if (typeof selectedOwner.execution.endedAt === "number") {
+          break;
+        }
         const selected = selectedOwner;
         assertReadCurrent();
         sessionEntry = await loadSubagentSessionEntry({
