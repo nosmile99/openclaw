@@ -9,6 +9,7 @@ import { collectPackageDistInventory } from "../../infra/package-dist-inventory.
 import * as tmpDirs from "../../infra/tmp-openclaw-dir.js";
 import { createDeferredCore } from "../../shared/deferred.js";
 import type { NodeBootstrapArtifactWorkerTasks } from "./node-bootstrap-artifact-contract.js";
+import * as nodeBootstrapArtifactWorker from "./node-bootstrap-artifact-worker.js";
 import {
   buildId,
   longEntryPath,
@@ -600,6 +601,47 @@ describe("node bootstrap distribution", () => {
       );
     },
   );
+
+  it("rejects enrollments that join preparation while close() disposes the archive", async () => {
+    const root = tempDirs.make("node-artifact-close-race-");
+    const provider = createProvider({
+      packageRoot: root,
+      runningBuildId: null,
+      plugins: [],
+    });
+    const entered = createDeferredCore();
+    const release = createDeferredCore<void>();
+    const stub = vi
+      .spyOn(nodeBootstrapArtifactWorker, "prepareNodeArtifactInWorker")
+      .mockImplementationOnce(async (_kind, { temporaryRoot }) => {
+        entered.resolve();
+        const tarballPath = path.join(temporaryRoot, "node-runtime.tgz");
+        await fs.writeFile(tarballPath, "fixture-tarball");
+        await release.promise;
+        return {
+          tarballPath,
+          tarballSha256: "fixture-sha256",
+          tarballBytes: 15,
+          openclawVersion: version,
+          buildId,
+          enabledPluginIds: [],
+        };
+      });
+    try {
+      const first = provider.prepare();
+      await entered.promise;
+      // A second enrollment joins the shared preparation while the provider is still open.
+      const second = provider.prepare();
+      const closing = provider.close();
+      release.resolve();
+      await closing;
+      await expect(first).rejects.toThrow("Node bootstrap artifact provider is closed");
+      await expect(second).rejects.toThrow("Node bootstrap artifact provider is closed");
+    } finally {
+      release.resolve();
+      stub.mockRestore();
+    }
+  });
 
   it("rejects streamed bytes that differ from the verified source", async () => {
     const { provider } = await fixture();
