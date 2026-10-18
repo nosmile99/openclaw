@@ -610,10 +610,14 @@ describe("node bootstrap distribution", () => {
       plugins: [],
     });
     const entered = createDeferredCore();
-    const release = createDeferredCore<void>();
+    const release = createDeferredCore();
     const stub = vi
       .spyOn(nodeBootstrapArtifactWorker, "prepareNodeArtifactInWorker")
-      .mockImplementationOnce(async (_kind, { temporaryRoot }) => {
+      .mockImplementationOnce(async (_kind, input) => {
+        if (!("temporaryRoot" in input)) {
+          throw new Error("fault injection expects the bootstrap worker task");
+        }
+        const { temporaryRoot } = input;
         entered.resolve();
         const tarballPath = path.join(temporaryRoot, "node-runtime.tgz");
         await fs.writeFile(tarballPath, "fixture-tarball");
